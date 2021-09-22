@@ -1,0 +1,181 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: &name nsenter
+  labels:
+    app: *name
+spec:
+  selector:
+    matchLabels:
+      app: *name
+  template:
+    metadata:
+      labels:
+        app: *name
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                - Standard_NP10s
+                - Standard_NP20s
+                - Standard_NP40s
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - image: docker.io/alexeldeib/aks-fpga:latest # requires an image with bash, curl, sleep, and nsenter (vanilla ubuntu works)
+        imagePullPolicy: Always
+        name: *name
+        command: ["/entrypoint.sh"]
+        args: ["installonly"] # if you don't use my image or build one from Dockerfile, set this to "downloadandinstall"
+        resources:
+          requests:
+            {}
+          limits:
+            {}
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: actions
+          mountPath: "/opt/actions"
+        - name: hostmount
+          mountPath: "/mnt/actions"
+        - name: debs
+          mountPath: "/mnt/debs"
+      volumes:
+      - name: debs
+        hostPath:
+          path: /opt/debs
+          type: DirectoryOrCreate
+      - name: hostmount
+        hostPath:
+          path: /opt/actions
+          type: DirectoryOrCreate
+      - name: actions
+        configMap:
+          name: nsenter-actions
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nsenter-actions
+  labels:
+    app: nsenter
+data:
+  installonly: |
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    # This script should be executed on VM host in the directly as the deb 
+    # will install systemd units and host dependencies.
+
+    cd /opt/debs
+    tar -xvzf xilinx-u250-gen3x16-xdma-platform-2.1-3_all_18.04.deb.tar.gz 
+    rm xilinx-u250-gen3x16-xdma-platform-2.1-3_all_18.04.deb.tar.gz
+    set +e # dpkg -i will fail, apt install will fix it.
+    sudo dpkg -i xrt_202020.2.8.832_18.04-amd64-xrt.deb
+    set -e
+    sudo apt install -y -f # install missing dependencies
+    set +e # dpkg -i will fail, apt install will fix it.
+    sudo dpkg -i xrt_202020.2.8.832_18.04-amd64-azure.deb 
+    set -e
+    sudo apt install -y -f # install missing dependencies
+    sudo dpkg -i xilinx-* # install everything else
+    sudo systemctl enable --now mpd
+    set -x
+    export XILINX_XRT="/opt/xilinx/xrt"
+    export PATH="/opt/xilinx/xrt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    export LD_LIBRARY_PATH="/opt/xilinx/xrt/lib"
+    export PYTHONPATH="/opt/xilinx/xrt/python"
+    source /opt/xilinx/xrt/setup.sh # validate
+    xbutil scan # yay?
+
+    /opt/xilinx/xrt/bin/xbutil host_mem -d 0 --enable --size 1G
+
+    echo "finished successfully!"
+
+  downloadandinstall: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # This script should be executed on VM host in the directly as the deb packages
+    # the host will be mounted at /host, the debs will be copied to /mnt
+    # then the container will nsenter and install everything against the host.
+
+    work="$(mktemp -d)"
+    pushd "$work"
+    trap 'popd; rm -rf $work' EXIT INT TERM
+
+    curl -L https://www.xilinx.com/bin/public/openDownload?filename=xrt_202020.2.8.832_18.04-amd64-xrt.deb -o xrt_202020.2.8.832_18.04-amd64-xrt.deb 
+    curl -L https://www.xilinx.com/bin/public/openDownload?filename=xrt_202020.2.8.832_18.04-amd64-azure.deb -o xrt_202020.2.8.832_18.04-amd64-azure.deb
+    curl -L https://www.xilinx.com/bin/public/openDownload?filename=xilinx-u250-gen3x16-xdma-platform-2.1-3_all_18.04.deb.tar.gz  -o xilinx-u250-gen3x16-xdma-platform-2.1-3_all_18.04.deb.tar.gz
+    curl -L https://www.xilinx.com/bin/public/openDownload?filename=xilinx-u250-gen3x16-xdma-validate_2.1-3005608.1_all.deb -o xilinx-u250-gen3x16-xdma-validate_2.1-3005608.1_all.deb
+
+    tar -xvzf xilinx-u250-gen3x16-xdma-platform-2.1-3_all_18.04.deb.tar.gz 
+    rm xilinx-u250-gen3x16-xdma-platform-2.1-3_all_18.04.deb.tar.gz
+
+    set +e # dpkg -i will fail, apt install will fix it.
+    sudo dpkg -i xrt_202020.2.8.832_18.04-amd64-xrt.deb
+    set -e
+    sudo apt install -y -f # install missing dependencies
+    set +e # dpkg -i will fail, apt install will fix it.
+    sudo dpkg -i xrt_202020.2.8.832_18.04-amd64-azure.deb 
+    set -e
+    sudo apt install -y -f # install missing dependencies
+    sudo dpkg -i xilinx-* # install everything else
+    sudo systemctl enable --now mpd
+    set -x
+    source /opt/xilinx/xrt/setup.sh # validate
+    xbutil scan # yay?
+    /opt/xilinx/xrt/bin/xbutil host_mem -d 0 --enable --size 1G
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fpga-device-plugin-daemonset
+  namespace: kube-system
+spec:
+#if run with k8s v1.16-, the following 3 lines are not required
+  selector:
+    matchLabels:
+      name: xilinx-fpga-device-plugin
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        name: xilinx-fpga-device-plugin
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                - Standard_NP10s
+                - Standard_NP20s
+                - Standard_NP40s
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      containers:
+      - image: xilinxatg/xilinx_k8s_fpga_plugin:2020.11.24
+        name: xilinx-fpga-device-plugin
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+          - name: device-plugin
+            mountPath: /var/lib/kubelet/device-plugins
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+---
