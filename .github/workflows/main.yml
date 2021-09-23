@@ -38,7 +38,7 @@ jobs:
         docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
         TAG=$(date -Ihours | tr :+ -)
         echo "TAG: ${TAG}"
-        docker buildx build --cache-from=type=local,src=/tmp/.buildx-cache --cache-to=type=local,dest=/tmp/.buildx-cache-new -t ${REPO}/${IMG_PREFIX}:${TAG} --output=type=registry --output=type=image,push=true,name=${REPO}/${IMG_PREFIX}:${TAG} .
+        docker buildx build --cache-from=type=local,src=/tmp/.buildx-cache --cache-to=type=local,dest=/tmp/.buildx-cache-new -t ${REPO}/${IMG_PREFIX}:${TAG} --output=type=image,push=true,name=${REPO}/${IMG_PREFIX}:${TAG} .
         docker tag ${REPO}/${IMG_PREFIX}:${TAG} ${REPO}/${IMG_PREFIX}:latest
         docker push ${REPO}/${IMG_PREFIX}:${TAG}
         docker push ${REPO}/${IMG_PREFIX}:latest
