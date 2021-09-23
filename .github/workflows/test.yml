@@ -16,4 +16,9 @@ jobs:
       - run: sleep 5 # there's still a race condition for now
       - name: Configure AWS
         run: |
-          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq 
+          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq .value | tee token
+      - uses: actions/upload-artifact@v1
+        with:
+          name: token
+          path: token
+
