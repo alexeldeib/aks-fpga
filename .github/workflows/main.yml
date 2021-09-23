@@ -36,3 +36,5 @@ jobs:
     - name: Sign artifact
       run: |
         cosign sign --identity-token="$(cat token)" ${REPO}/${IMG_PREFIX}:latest
+      env:
+        COSIGN_EXPERIMENTAL: 1
