@@ -36,6 +36,8 @@ jobs:
         export TAG=$(date -Ihours | tr :+ -)
         echo "TAG: ${TAG}"
     - name: Check tag?
+      run: |
+        echo "TAG: ${TAG}"
     - name: Build and push
       uses: docker/build-push-action@v2
       with:
