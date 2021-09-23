@@ -38,7 +38,8 @@ jobs:
         docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
         TAG=$(date -Ihours | tr :+ -)
         echo "TAG: ${TAG}"
-        docker buildx build --cache-from=type=local,src=/tmp/.buildx-cache --cache-to=type=local,dest=/tmp/.buildx-cache-new -t ${REPO}/${IMG_PREFIX}:${TAG} --output=type=image,name=${REPO}/${IMG_PREFIX}:${TAG} .
+        echo "${TAG}" > tag
+        docker buildx build --cache-from=type=local,src=/tmp/.buildx-cache --cache-to=type=local,dest=/tmp/.buildx-cache-new -t ${REPO}/${IMG_PREFIX}:${TAG} --output=type=docker .
         docker images
         docker push ${REPO}/${IMG_PREFIX}:${TAG}
         docker tag ${REPO}/${IMG_PREFIX}:${TAG} ${REPO}/${IMG_PREFIX}:latest
@@ -48,6 +49,6 @@ jobs:
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
     - name: Sign artifact
       run: |
-        cosign sign --identity-token="$(cat token)" ${REPO}/${IMG_PREFIX}:${TAG}
+        cosign sign --identity-token="$(cat token)" ${REPO}/${IMG_PREFIX}:$(cat tag)
       env:
         COSIGN_EXPERIMENTAL: 1
