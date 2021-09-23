@@ -42,6 +42,10 @@ jobs:
         docker tag ${REPO}/${IMG_PREFIX}:${TAG} ${REPO}/${IMG_PREFIX}:latest
         docker push ${REPO}/${IMG_PREFIX}:${TAG}
         docker push ${REPO}/${IMG_PREFIX}:latest
+    - name: Move cache
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
     - name: Sign artifact
       run: |
         cosign sign --identity-token="$(cat token)" ${REPO}/${IMG_PREFIX}:latest
