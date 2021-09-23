@@ -49,6 +49,7 @@ jobs:
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
     - name: Sign artifact
       run: |
+        cat token
         cosign sign --identity-token="$(cat token)" ${REPO}/${IMG_PREFIX}:$(cat tag)
       env:
         COSIGN_EXPERIMENTAL: 1
