@@ -13,7 +13,9 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - run: sleep 5 # there's still a race condition for now
+      - uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v1.0.0'
       - name: Configure AWS
         run: |
           curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq .value | tee token
