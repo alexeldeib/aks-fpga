@@ -29,6 +29,8 @@ jobs:
     - uses: sigstore/cosign-installer@main
       with:
         cosign-release: 'v1.0.0'
+    - name: Avoid race
+      run: sleep 5
     - name: Configure token
       run: |
         echo "token $ACTIONS_ID_TOKEN_REQUEST_TOKEN"
@@ -42,9 +44,8 @@ jobs:
         echo "TAG: ${TAG}"
         echo "${TAG}" > tag
         docker buildx build --cache-from=type=local,src=/tmp/.buildx-cache --cache-to=type=local,dest=/tmp/.buildx-cache-new -t ${REPO}/${IMG_PREFIX}:${TAG} --output=type=docker .
-        docker images
-        docker push ${REPO}/${IMG_PREFIX}:${TAG}
         docker tag ${REPO}/${IMG_PREFIX}:${TAG} ${REPO}/${IMG_PREFIX}:latest
+        docker push ${REPO}/${IMG_PREFIX}:latest
     - name: Move cache
       run: |
         rm -rf /tmp/.buildx-cache
