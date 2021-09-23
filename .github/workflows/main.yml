@@ -30,7 +30,7 @@ jobs:
       with:
         cosign-release: 'v1.0.0'
     - name: Avoid race
-      run: sleep 5
+      run: sleep 10
     - name: Configure token
       run: |
         echo "token $ACTIONS_ID_TOKEN_REQUEST_TOKEN"
