@@ -29,12 +29,7 @@ jobs:
         docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
         TAG=$(date -Ihours | tr :+ -)
         echo "TAG: ${TAG}"
-        docker build -t ${REPO}/${IMG_PREFIX}-dev:${TAG} .
-        docker build -f Dockerfile.final --build-arg IMG=${REPO}/${IMG_PREFIX}-dev --build-arg TAG=${TAG} -t ${REPO}/${IMG_PREFIX}:${TAG} .
-        
-        docker tag ${REPO}/${IMG_PREFIX}-dev:${TAG} ${REPO}/${IMG_PREFIX}-dev:latest
-        docker push ${REPO}/${IMG_PREFIX}-dev:${TAG}
-        docker push ${REPO}/${IMG_PREFIX}-dev:latest
+        docker build -t ${REPO}/${IMG_PREFIX}:${TAG} .
         docker tag ${REPO}/${IMG_PREFIX}:${TAG} ${REPO}/${IMG_PREFIX}:latest
         docker push ${REPO}/${IMG_PREFIX}:${TAG}
         docker push ${REPO}/${IMG_PREFIX}:latest
